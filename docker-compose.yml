@@ -1,0 +1,165 @@
+﻿# ./docker-compose.yml
+
+version: '3.7'
+services:
+  create_certs: 
+    container_name: create_certs
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.9.3
+    command: >
+      bash -c '
+        if [[ ! -f /certs/bundle.zip ]]; then
+          bin/elasticsearch-certutil cert --silent --pem --in config/certificates/instances.yml -out /certs/bundle.zip;
+          unzip /certs/bundle.zip -d /certs; 
+        fi;
+        chown -R 1000:0 /certs
+      '
+    user: "0"
+    working_dir: /usr/share/elasticsearch
+    volumes: 
+      - certs:/certs
+      - .:/usr/share/elasticsearch/config/certificates
+  es01:
+    depends_on: [create_certs]
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.9.3
+    environment:
+      - cluster.name=docker-cluster
+      - node.name=es01
+      - discovery.seed_hosts=es01,es02,es03
+      - cluster.initial_master_nodes=es01,es02,es03
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - ELASTIC_PASSWORD=playground # password for default user: elastic
+      - xpack.license.self_generated.type=basic
+      - xpack.security.enabled=true
+      - xpack.security.http.ssl.enabled=true
+      - xpack.security.http.ssl.key=/usr/share/elasticsearch/config/certificates/es01/es01.key
+      - xpack.security.http.ssl.certificate_authorities=/usr/share/elasticsearch/config/certificates/ca/ca.crt
+      - xpack.security.http.ssl.certificate=/usr/share/elasticsearch/config/certificates/es01/es01.crt
+      - xpack.security.transport.ssl.enabled=true
+      - xpack.security.transport.ssl.verification_mode=certificate
+      - xpack.security.transport.ssl.certificate_authorities=/usr/share/elasticsearch/config/certificates/ca/ca.crt
+      - xpack.security.transport.ssl.certificate=/usr/share/elasticsearch/config/certificates/es01/es01.crt
+      - xpack.security.transport.ssl.key=/usr/share/elasticsearch/config/certificates/es01/es01.key
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+      memlock:
+        soft: -1
+        hard: -1
+    volumes: ['es01-volume:/usr/share/elasticsearch/data', 'certs:/usr/share/elasticsearch/config/certificates']
+    ports:
+      - 9200:9200
+    container_name: elasticsearch_01
+    healthcheck:
+      test: curl --cacert /usr/share/elasticsearch/config/certificates/ca/ca.crt -s https://localhost:9200 >/dev/null; if [[ $$? == 52 ]]; then echo 0; else echo 1; fi
+      interval: 30s
+      timeout: 10s
+      retries: 5
+  es02:
+    depends_on: [create_certs]
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.9.3
+    environment:
+      - cluster.name=docker-cluster
+      - node.name=es02
+      - discovery.seed_hosts=es01,es02,es03
+      - cluster.initial_master_nodes=es01,es02,es03
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - ELASTIC_PASSWORD=playground # password for default user: elastic
+      - xpack.license.self_generated.type=basic
+      - xpack.security.enabled=true
+      - xpack.security.http.ssl.enabled=true
+      - xpack.security.http.ssl.key=/usr/share/elasticsearch/config/certificates/es02/es02.key
+      - xpack.security.http.ssl.certificate_authorities=/usr/share/elasticsearch/config/certificates/ca/ca.crt
+      - xpack.security.http.ssl.certificate=/usr/share/elasticsearch/config/certificates/es02/es02.crt
+      - xpack.security.transport.ssl.enabled=true
+      - xpack.security.transport.ssl.verification_mode=certificate
+      - xpack.security.transport.ssl.certificate_authorities=/usr/share/elasticsearch/config/certificates/ca/ca.crt
+      - xpack.security.transport.ssl.certificate=/usr/share/elasticsearch/config/certificates/es02/es02.crt
+      - xpack.security.transport.ssl.key=/usr/share/elasticsearch/config/certificates/es02/es02.key
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+      memlock:
+        soft: -1
+        hard: -1
+    volumes: ['es02-volume:/usr/share/elasticsearch/data', 'certs:/usr/share/elasticsearch/config/certificates']
+    container_name: elasticsearch_02
+    ports:
+      - 9201:9200
+  es03:
+    depends_on: [create_certs]
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.9.3
+    environment:
+      - cluster.name=docker-cluster
+      - node.name=es03
+      - discovery.seed_hosts=es01,es02,es03
+      - cluster.initial_master_nodes=es01,es02,es03
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - ELASTIC_PASSWORD=playground # password for default user: elastic
+      - xpack.license.self_generated.type=basic
+      - xpack.security.enabled=true
+      - xpack.security.http.ssl.enabled=true
+      - xpack.security.http.ssl.key=/usr/share/elasticsearch/config/certificates/es03/es03.key
+      - xpack.security.http.ssl.certificate_authorities=/usr/share/elasticsearch/config/certificates/ca/ca.crt
+      - xpack.security.http.ssl.certificate=/usr/share/elasticsearch/config/certificates/es03/es03.crt
+      - xpack.security.transport.ssl.enabled=true
+      - xpack.security.transport.ssl.verification_mode=certificate
+      - xpack.security.transport.ssl.certificate_authorities=/usr/share/elasticsearch/config/certificates/ca/ca.crt
+      - xpack.security.transport.ssl.certificate=/usr/share/elasticsearch/config/certificates/es03/es03.crt
+      - xpack.security.transport.ssl.key=/usr/share/elasticsearch/config/certificates/es03/es03.key
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+      memlock:
+        soft: -1
+        hard: -1
+    volumes: ['es03-volume:/usr/share/elasticsearch/data', 'certs:/usr/share/elasticsearch/config/certificates']
+    container_name: elasticsearch_03
+    ports:
+      - 9202:9200
+  kibana:
+      depends_on: ["es01","es02","es03"]
+      image: docker.elastic.co/kibana/kibana:7.9.3
+      ports:
+        - 5601:5601
+      ulimits:
+        memlock: -1
+        nofile: 65536
+        fsize: -1
+        as: -1
+      volumes:
+        - kibana-volume:/usr/share/kibana
+        - certs:/usr/share/elasticsearch/config/certificates
+      container_name: kibana
+      environment:
+        - SERVER_NAME=kibana
+        - SERVER_HOST=0.0.0.0
+        - ELASTICSEARCH_USERNAME=elastic
+        - ELASTICSEARCH_PASSWORD=playground
+        - XPACK_SECURITY_ENABLED=true
+        - XPACK_SECURITY_AUDIT_ENABLED=true
+        - XPACK_SECURITY_SESSION_IDLETIMEOUT="1h"
+        - XPACK_SECURITY_SESSION_LIFESPAN="30d"
+        - XPACK_REPORTING_ENABLED=true
+        - XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY=22qZxDMn19oKqERasyl0v2ePGU8piVR7
+        - ELASTICSEARCH_SSL_CERTIFICATEAUTHORITIES=/usr/share/elasticsearch/config/certificates/ca/ca.crt
+        - ELASTICSEARCH_SSL_VERIFICATIONMODE=certificate
+        - ELASTICSEARCH_HOSTS=["https://es01:9200/"]
+        - TELEMETRY_ENABLED=false
+        - CSP_STRICT=true
+volumes:
+  es01-volume:
+    driver: local
+  es02-volume:
+    driver: local
+  es03-volume:
+    driver: local
+  kibana-volume:
+    driver: local
+  certs:
+    driver: local
