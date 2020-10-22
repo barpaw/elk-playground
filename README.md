@@ -17,25 +17,32 @@ i restart docker
 w folderze gdzie jest docker-compose.yml
 
 ```
-docker-compose up
+docker-compose up --force-recreate
 ```
 
 lub jeżeli chcemy uruchomić w tle
 
 ```
-docker-compose up -d
+docker-compose up -d --force-recreate
 ```
 
-# CZYSZCZENIE WSZYSTKICH KONTENERÓW I VOLUMES
+# WYŁĄCZANIE Z CZYSZCZENIEM
 
 w folderze gdzie jest docker-compose.yml
 
+```
+docker-compose down  --remove-orphans --volumes
+```
+
+Czyszczenie wszystkich kontenerów i volumes
 ```
 docker rm -f $(docker ps -a -q)
 docker volume rm $(docker volume ls -q)
 ```
 
 # KIBANA
+
+Po uruchomieniu usług wejdź na:
 
 [http://localhost:5601/](http://localhost:5601/)
 
